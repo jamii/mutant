@@ -18,7 +18,7 @@ pub fn main() anyerror!void {
         const source = try file.reader().readAllAlloc(allocator, std.math.maxInt(usize));
         const source_z = try std.mem.dupeZ(allocator, u8, source);
         const tree = try std.zig.parse(allocator, source_z);
-        if (try proposeMutation(allocator, tree)) |mutation| {
+        if (try proposeMutation(allocator, source, tree)) |mutation| {
             const mutated = try std.mem.concat(allocator, u8, &.{
                 source[0..mutation.range[0]],
                 mutation.replacement,
@@ -39,7 +39,7 @@ const Mutation = struct {
     replacement: []const u8,
 };
 
-fn proposeMutation(allocator: *std.mem.Allocator, tree: std.zig.ast.Tree) !?Mutation {
+fn proposeMutation(allocator: *std.mem.Allocator, source: []const u8, tree: std.zig.ast.Tree) !?Mutation {
     var ranges = std.ArrayList([2]usize).init(allocator);
     var node_id: usize = 0;
     while (node_id < tree.nodes.len) : (node_id += 1) {
@@ -49,11 +49,22 @@ fn proposeMutation(allocator: *std.mem.Allocator, tree: std.zig.ast.Tree) !?Muta
     }
     if (ranges.items.len == 0) return null;
     const range = ranges.items[random.uintLessThan(usize, ranges.items.len)];
-    const replacement_int =
-        @floatToInt(isize, @floor(random.floatExp(f64))) *
-        if (random.boolean()) @as(isize, 1) else (-1);
+    const int_source = source[range[0]..range[1]];
+    const int = std.fmt.parseInt(i128, int_source, 0) catch 0;
+    const diff =
+        @floatToInt(i128, @floor(random.floatExp(f64))) *
+        if (random.boolean()) @as(i128, 1) else (-1);
+    const replacement_int = int + diff;
     var replacement = std.ArrayList(u8).init(allocator);
-    try std.fmt.format(replacement.writer(), "{}", .{replacement_int});
+    if (std.mem.startsWith(u8, int_source, "0x")) {
+        try std.fmt.format(replacement.writer(), "0x{x}", .{replacement_int});
+    } else if (std.mem.startsWith(u8, int_source, "0o")) {
+        try std.fmt.format(replacement.writer(), "0o{o}", .{replacement_int});
+    } else if (std.mem.startsWith(u8, int_source, "0b")) {
+        try std.fmt.format(replacement.writer(), "0b{b}", .{replacement_int});
+    } else {
+        try std.fmt.format(replacement.writer(), "{}", .{replacement_int});
+    }
     return Mutation{ .range = range, .replacement = replacement.items };
 }
 
