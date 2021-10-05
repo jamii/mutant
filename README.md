@@ -1,24 +1,26 @@
-<https://en.wikipedia.org/wiki/Mutation_testing>
+Creates bugs, in order to practice debugging.
+
+(See also <https://en.wikipedia.org/wiki/Mutation_testing>)
 
 ```
 ~/zig$ rg --files lib/std | grep -F '.zig' | zig run ../mutant/mutant.zig
 
 ~/zig$ git diff
-diff --git a/lib/std/math/copysign.zig b/lib/std/math/copysign.zig
-index 47065feda..47306e238 100644
---- a/lib/std/math/copysign.zig
-+++ b/lib/std/math/copysign.zig
-@@ -56,7 +56,7 @@ fn copysign128(x: f128, y: f128) f128 {
-     const ux = @bitCast(u128, x);
-     const uy = @bitCast(u128, y);
+diff --git a/lib/std/os/linux.zig b/lib/std/os/linux.zig
+index ca8f0907e..3ac28c5f5 100644
+--- a/lib/std/os/linux.zig
++++ b/lib/std/os/linux.zig
+@@ -961,7 +961,7 @@ pub fn sigaction(sig: u6, noalias act: ?*const Sigaction, noalias oact: ?*Sigact
+         .sparc, .sparcv9 => syscall5(.rt_sigaction, sig, ksa_arg, oldksa_arg, @ptrToInt(ksa.restorer), mask_size),
+         else => syscall4(.rt_sigaction, sig, ksa_arg, oldksa_arg, mask_size),
+     };
+-    if (getErrno(result) != 0) return result;
++    if (getErrno(result) == 0) return result;
 
--    const h1 = ux & (maxInt(u128) / 2);
-+    const h1 = ux & (maxInt(u128) / 0);
-     const h2 = uy & (@as(u128, 1) << 127);
-     return @bitCast(f128, h1 | h2);
- }
- 
+     if (oact) |old| {
+         old.handler.handler = oldksa.handler;
+
 ~/zig$ zig build test-std
-./lib/std/math/copysign.zig:59:35: error: division by zero
-    const h1 = ux & (maxInt(u128) / 0);
+...
+Test [883/1944] os.test.test "std-native-Debug-bare-multi sigaction"... FAIL (TestExpectedEqual)
 ```
